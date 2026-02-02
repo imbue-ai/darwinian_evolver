@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "darwinian-evolver"
+version = "0.1.0"
+readme = "README.md"
+dependencies = [
+    "anthropic",
+    "numpy",
+    "pydantic",
+    "jinja2",
+    "func_timeout",
+    "fsspec",
+]
+requires-python = ">=3.11"
+
+[tool.setuptools]
+packages.find.include = ["darwinian_evolver*"]
+package-data.darwinian_evolver = ["py.typed"]
+
+[dependency-groups]
+dev = [
+    "tqdm",
+    "pandas",
+    "pandas-stubs",
+]
+test = [
+    "pytest",
+]

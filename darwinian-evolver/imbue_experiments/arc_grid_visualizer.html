@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grid Visualization</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #1a202c;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            color: #a0aec0;
+        }
+
+        .controls {
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #4a5568;
+            background-color: #2d3748;
+            color: #e2e8f0;
+            font-family: monospace;
+            font-size: 0.85rem;
+            resize: vertical;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        textarea:focus {
+            border-color: #63b3ed;
+            box-shadow: 0 0 0 3px rgba(99, 179, 237, 0.2);
+        }
+
+        .button-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        button {
+            padding: 10px 24px;
+            background-color: #4299e1;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #3182ce;
+        }
+
+        .error-msg {
+            color: #f56565;
+            font-size: 0.9rem;
+            font-weight: 500;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .error-msg.visible {
+            opacity: 1;
+        }
+
+        .canvas-container {
+            background: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            max-width: 100%;
+            overflow: auto;
+            /* Ensure it doesn't collapse if empty */
+            min-height: 50px;
+            min-width: 50px;
+            display: flex;
+            justify-content: center;
+        }
+
+        canvas {
+            display: block;
+            image-rendering: pixelated;
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 800px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .color-box {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Grid Map Visualizer</h1>
+
+    <div class="controls">
+        <textarea id="gridInput" placeholder="Paste your 2D JSON array here (e.g. [[0, 1], [1, 0]])"></textarea>
+        <div class="button-row">
+            <span id="errorMsg" class="error-msg">Invalid JSON format</span>
+            <button onclick="parseAndDraw()">Render Grid</button>
+        </div>
+    </div>
+
+    <div class="canvas-container">
+        <canvas id="gridCanvas"></canvas>
+    </div>
+
+    <div class="legend">
+        <div class="legend-item">
+            <div class="color-box" style="background-color: #000000;"></div> 0
+        </div>
+        <div class="legend-item">
+            <div class="color-box" style="background-color: #0074D9;"></div> 1
+        </div>
+        <div class="legend-item">
+            <div class="color-box" style="background-color: #FF4136;"></div> 2
+        </div>
+        <div class="legend-item">
+            <div class="color-box" style="background-color: #2ECC40;"></div> 3
+        </div>
+        <div class="legend-item">
+            <div class="color-box" style="background-color: #FFDC00;"></div> 4
+        </div>
+        <div class="legend-item">
+            <div class="color-box" style="background-color: #AAAAAA;"></div> 5
+        </div>
+        <div class="legend-item">
+            <div class="color-box" style="background-color: #F012BE;"></div> 6
+        </div>
+        <div class="legend-item">
+            <div class="color-box" style="background-color: #FF851B;"></div> 7
+        </div>
+        <div class="legend-item">
+            <div class="color-box" style="background-color: #7FDBFF;"></div> 8
+        </div>
+        <div class="legend-item">
+            <div class="color-box" style="background-color: #870C25;"></div> 9
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const CELL_SIZE = 25;
+        const COLORS = {
+            0: '#000000', // Black
+            1: '#0074D9', // Blue
+            2: '#FF4136', // Red
+            3: '#2ECC40', // Green
+            4: '#FFDC00', // Yellow
+            5: '#AAAAAA', // Gray
+            6: '#F012BE', // Magenta
+            7: '#FF851B', // Orange
+            8: '#7FDBFF', // Cyan
+            9: '#870C25'  // Maroon
+        };
+
+        // Default Initial Data
+        const defaultGrid = [
+            [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 0],
+            [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0],
+            [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0],
+            [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 3],
+            [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 3, 3],
+            [3, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3],
+            [3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3],
+            [3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3],
+            [3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3],
+            [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+            [0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+        ];
+
+        function parseAndDraw() {
+            const input = document.getElementById('gridInput').value;
+            const errorMsg = document.getElementById('errorMsg');
+
+            try {
+                const data = JSON.parse(input);
+
+                // Basic validation to ensure it's an array of arrays
+                if (!Array.isArray(data) || !Array.isArray(data[0])) {
+                    throw new Error("Data must be a 2D array");
+                }
+
+                drawGrid(data);
+                errorMsg.classList.remove('visible');
+            } catch (e) {
+                console.error(e);
+                errorMsg.classList.add('visible');
+            }
+        }
+
+        function drawGrid(gridData) {
+            const canvas = document.getElementById('gridCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Calculate dimensions
+            const rows = gridData.length;
+            // Handle potentially uneven rows gracefully by taking the max length
+            let cols = 0;
+            gridData.forEach(row => { if (row.length > cols) cols = row.length; });
+
+            const width = cols * CELL_SIZE;
+            const height = rows * CELL_SIZE;
+
+            // Set high resolution for retina displays
+            const scale = window.devicePixelRatio || 1;
+            canvas.width = width * scale;
+            canvas.height = height * scale;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+
+            // Scale context to match
+            ctx.scale(scale, scale);
+
+            // Clear canvas
+            ctx.fillStyle = "#fff";
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw
+            for (let r = 0; r < rows; r++) {
+                // Handle rows that might be shorter than others
+                const rowLen = gridData[r] ? gridData[r].length : 0;
+                for (let c = 0; c < rowLen; c++) {
+                    const value = gridData[r][c];
+                    const x = c * CELL_SIZE;
+                    const y = r * CELL_SIZE;
+
+                    // Fill color
+                    ctx.fillStyle = COLORS[value] || '#000'; // Default to black if unknown
+                    ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
+
+                    // Optional: Draw a subtle border for grid effect
+                    ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x, y, CELL_SIZE, CELL_SIZE);
+                }
+            }
+        }
+
+        // Initialize
+        window.onload = function () {
+            // Set the text area to the default grid
+            document.getElementById('gridInput').value = JSON.stringify(defaultGrid);
+            // Draw it
+            parseAndDraw();
+        };
+
+    </script>
+</body>
+
+</html>
