@@ -9,6 +9,8 @@ readme = "README.md"
 dependencies = [
     "anthropic",
     "numpy",
+    "google-genai",
+    "openai",
     "pydantic",
     "jinja2",
     "func_timeout",
