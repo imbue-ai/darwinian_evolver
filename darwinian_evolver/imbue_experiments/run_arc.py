@@ -55,7 +55,7 @@ def _eval_task_data(
         should_verify_mutations=True,
         num_parents_per_iteration=4,
         # Optional: Use subprocesses to be a little more resilient against OOM issues.
-        # When enabled, each subprocess has memory limits (default 8GB) and uses shared memory for cost tracking.
+        # When enabled, each subprocess has memory limits (default 16GB) and uses shared memory for cost tracking.
         # Note: You might need to increase your open file limit (e.g. `ulimit -n 16000`) to avoid
         #  `[Errno 24] Too many open files`.
         use_process_pool_executors=use_process_pool_executors,

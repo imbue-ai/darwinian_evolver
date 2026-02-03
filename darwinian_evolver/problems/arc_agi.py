@@ -986,7 +986,8 @@ Synthesize the insights from the parent solutions above to create an improved so
 
         try:
             parents_with_results = self._context.population.sample_parents(
-                self._num_parents_per_crossover, replace=False, novelty_weight=0.0
+                self._num_parents_per_crossover,
+                replace=False,
             )
         except ValueError as e:
             print(f"Error sampling parents for crossover: {e}")
