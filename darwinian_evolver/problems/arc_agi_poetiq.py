@@ -15,6 +15,8 @@ from typing import Any
 
 import numpy as np
 
+USE_SLASH_DIFF = True
+
 
 def build_prompt(base_prompt: str, **fields: str) -> str:
     s = base_prompt
@@ -85,40 +87,32 @@ def format_problem(problem: dict[str, Any], should_highlight_diff: bool = False)
 ```
 
 """
+
+        example_str += f"""### Output:
+```
+{example_to_diagram(example["output"])}
+```
+"""
         if should_highlight_diff:
             # Inline diff highlighting logic
             inp_arr = np.array(example["input"])
             out_arr = np.array(example["output"])
 
-            if inp_arr.shape != out_arr.shape:
-                # Different shapes - can't highlight diffs, use normal format
-                example_str += f"""### Output:
+            if inp_arr.shape == out_arr.shape:
+                # Same shape - highlight diffs
+                if USE_SLASH_DIFF:
+                    example_str += f"""
+### Input/Output Comparison:
+For cells that are different between input and output, the format is 'input/output'. Cells that are the same are shown as-is.
 ```
-{example_to_diagram(example["output"])}
+{_array_diff(inp_arr, out_arr)}
 ```
 """
-            else:
-                # Same shape - highlight diffs
-                example_str += "### Output (changed cells shown in [brackets]):\n```\n"
-                rows, cols = out_arr.shape
-                output_lines = []
-                for i in range(rows):
-                    row_parts = []
-                    for j in range(cols):
-                        out_val = int(out_arr[i, j])
-                        if inp_arr[i, j] != out_arr[i, j]:
-                            # Changed cell - show in brackets
-                            row_parts.append(f"[{out_val}]")
-                        else:
-                            # Unchanged cell - show placeholder
-                            row_parts.append(" _ ")
-                    output_lines.append(" ".join(row_parts))
-                example_str += "\n".join(output_lines)
-                example_str += "\n```\n"
-        else:
-            example_str += f"""### Output:
+                else:
+                    example_str += f"""
+### Output (differences from input only):
 ```
-{example_to_diagram(example["output"])}
+{example_to_diff_diagram(inp_arr, out_arr)}
 ```
 """
 
@@ -144,6 +138,17 @@ def example_to_diagram(example: list[list[int]] | np.ndarray) -> str:
     return diagram[:-1]  # Strip final \n
 
 
+def example_to_diff_diagram(
+    example_in: list[list[int]] | np.ndarray, example_out: list[list[int]] | np.ndarray
+) -> str:
+    """Converts an ARC-AGI example (list of lists) to a diagram (ascii grid)."""
+    diagram = ""
+    for i, row in enumerate(example_out):
+        row_str = " ".join([f"{col}" if col != example_in[i][j] else "-" for j, col in enumerate(row)]) + "\n"
+        diagram += row_str
+    return diagram[:-1]  # Strip final \n
+
+
 def _parse_json_array_no_expand(s: str) -> np.ndarray | None:
     """Parse JSON into a NumPy array without changing rank or dtype."""
     try:
@@ -153,7 +158,10 @@ def _parse_json_array_no_expand(s: str) -> np.ndarray | None:
 
 
 def build_feedback(
-    train_results: list["ArcAgiEvaluationFailureCase"], train_in, train_out, test_results=None
+    train_results: list["ArcAgiEvaluationFailureCase"],
+    train_in,
+    train_out,
+    test_results=None,
 ) -> tuple[str, float]:
     feedback_parts: list[str] = []
     per_example_scores: list[float] = []

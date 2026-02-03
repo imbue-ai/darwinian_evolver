@@ -90,6 +90,8 @@ _COST_TRACKER = multiprocessing.Value("d", 0.0)
 # Default memory limit for subprocesses (16GB in bytes)
 DEFAULT_SUBPROCESS_MEMORY_LIMIT_BYTES = 16 * 1024 * 1024 * 1024
 
+HIGHLIGHT_DIFF_THRESHOLD = 0.7
+
 
 def _track_cost(cost: float) -> None:
     global _COST_TRACKER
@@ -101,7 +103,9 @@ def get_current_cost() -> float:
     return _COST_TRACKER.value
 
 
-def set_process_limits(memory_limit_bytes: int = DEFAULT_SUBPROCESS_MEMORY_LIMIT_BYTES) -> None:
+def set_process_limits(
+    memory_limit_bytes: int = DEFAULT_SUBPROCESS_MEMORY_LIMIT_BYTES,
+) -> None:
     """Set up memory limits for subprocess.
 
     Args:
@@ -566,10 +570,15 @@ Do not include any other text outside the JSON object.
         test_results: list[ArcAgiEvaluationFailureCase],
         retries_remaining: int = 1,
     ) -> tuple[float, dict[str, float]]:
-        problem_str = format_problem(make_example(self._train_in, self._train_out, self._test_in))
+        example = make_example(self._train_in, self._train_out, self._test_in)
+        should_highlight_diff = self._baseline_similarity >= HIGHLIGHT_DIFF_THRESHOLD
+        problem_str = format_problem(example, should_highlight_diff=should_highlight_diff)
         feedback_str = build_feedback([], [], [], test_results)[0]
         prompt = build_prompt(
-            self.TRANSFER_SCORE_PROMPT, explanation=explanation, problem=problem_str, feedback=feedback_str
+            self.TRANSFER_SCORE_PROMPT,
+            explanation=explanation,
+            problem=problem_str,
+            feedback=feedback_str,
         )
         response_text = _prompt_llm(prompt, thinking_level=ThinkingLevel.MEDIUM)
 
@@ -631,7 +640,11 @@ Do not include any other text outside the JSON object.
             soft = soft_score(arr, truth)
 
         return ArcAgiEvaluationFailureCase(
-            data_point_id=str(idx), success=success, output=json.dumps(arr.tolist()), soft_score=soft, error=err
+            data_point_id=str(idx),
+            success=success,
+            output=json.dumps(arr.tolist()),
+            soft_score=soft,
+            error=err,
         )
 
 
@@ -781,6 +794,7 @@ Make sure to follow the output format specified earlier:
         self._train_out = train_out
         self._test_in = test_in
         self._aggressive_fraction = aggressive_fraction
+        self._baseline_similarity = _compute_baseline_similarity(train_in, train_out)
 
     def mutate(
         self,
@@ -801,11 +815,15 @@ Make sure to follow the output format specified earlier:
             return []
 
         example = make_example(self._train_in, self._train_out, self._test_in)
-        problem_str = format_problem(example)
+        should_highlight_diff = self._baseline_similarity >= HIGHLIGHT_DIFF_THRESHOLD
+        problem_str = format_problem(example, should_highlight_diff=should_highlight_diff)
         message = build_prompt(self.PROMPT_TEMPLATE, problem=problem_str)
 
         feedback_str = build_feedback(
-            eval_result.trainable_failure_cases, self._train_in, self._train_out, eval_result.holdout_failure_cases
+            eval_result.trainable_failure_cases,
+            self._train_in,
+            self._train_out,
+            eval_result.holdout_failure_cases,
         )[0]
 
         if all(fc.success for fc in eval_result.trainable_failure_cases):
@@ -842,7 +860,12 @@ Make sure to follow the output format specified earlier:
 
             if new_code_block is None:
                 if retries_remaining > 0:
-                    return self.mutate(organism, failure_cases, learning_log_entries, retries_remaining - 1)
+                    return self.mutate(
+                        organism,
+                        failure_cases,
+                        learning_log_entries,
+                        retries_remaining - 1,
+                    )
                 print("LLM mutation did not return any code block.")
                 return []
 
@@ -999,7 +1022,7 @@ Synthesize the insights from the parent solutions above to create an improved so
 
         # Format the problem with diff highlighting if applicable
         example = make_example(self._train_in, self._train_out, self._test_in)
-        should_highlight_diff = self._baseline_similarity >= 0.7
+        should_highlight_diff = self._baseline_similarity >= HIGHLIGHT_DIFF_THRESHOLD
         problem_str = format_problem(example, should_highlight_diff=should_highlight_diff)
 
         # Build the prompt
@@ -1015,7 +1038,12 @@ Synthesize the insights from the parent solutions above to create an improved so
 
             if new_code_block is None:
                 if retries_remaining > 0:
-                    return self.mutate(organism, failure_cases, learning_log_entries, retries_remaining - 1)
+                    return self.mutate(
+                        organism,
+                        failure_cases,
+                        learning_log_entries,
+                        retries_remaining - 1,
+                    )
                 print("Crossover mutation did not return a code block.")
                 return []
 
@@ -1053,7 +1081,10 @@ Synthesize the insights from the parent solutions above to create an improved so
         for i, (parent, result) in enumerate(parents_with_results, start=1):
             # Get full evaluation feedback
             feedback_str = build_feedback(
-                result.trainable_failure_cases, self._train_in, self._train_out, result.holdout_failure_cases
+                result.trainable_failure_cases,
+                self._train_in,
+                self._train_out,
+                result.holdout_failure_cases,
             )[0]
 
             part = f"## Parent Solution {i}\n\n"
@@ -1114,7 +1145,8 @@ def make_arc_agi_problem(
     test_in = [ex["input"] for ex in test]
 
     initial_organism = ArcAgiOrganism(
-        code_block=INITIAL_CODE_BLOCK.strip(), from_explanation="Initial placeholder solution."
+        code_block=INITIAL_CODE_BLOCK.strip(),
+        from_explanation="Initial placeholder solution.",
     )
 
     # Build mutators list
