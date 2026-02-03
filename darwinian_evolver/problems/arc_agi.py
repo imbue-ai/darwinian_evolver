@@ -975,6 +975,7 @@ Synthesize the insights from the parent solutions above to create an improved so
         organism: ArcAgiOrganism,
         failure_cases: list[ArcAgiEvaluationFailureCase],
         learning_log_entries: list[LearningLogEntry],
+        retries_remaining: int = 1,
     ) -> list[ArcAgiOrganism]:
         # Decide whether to perform crossover based on frequency
         if random.random() > self._crossover_frequency:
@@ -1013,6 +1014,8 @@ Synthesize the insights from the parent solutions above to create an improved so
             new_code_block = parse_code_from_llm(response_text)
 
             if new_code_block is None:
+                if retries_remaining > 0:
+                    return self.mutate(organism, failure_cases, learning_log_entries, retries_remaining - 1)
                 print("Crossover mutation did not return a code block.")
                 return []
 
@@ -1036,6 +1039,8 @@ Synthesize the insights from the parent solutions above to create an improved so
             return [mutated_organism]
 
         except Exception as e:
+            if retries_remaining > 0:
+                return self.mutate(organism, failure_cases, learning_log_entries, retries_remaining - 1)
             print(f"Crossover mutation failed: {e}")
             return []
 
