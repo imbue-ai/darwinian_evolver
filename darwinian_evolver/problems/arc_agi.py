@@ -589,7 +589,13 @@ Do not include any other text outside the JSON object.
         CODE_LENGTH_UNIT = 3000.0
 
         prompt = build_prompt(self.CODE_SIMPLICITY_SCORE_PROMPT, code=code_block)
-        response_text = _prompt_llm(prompt, thinking_level=ThinkingLevel.LOW)
+        try:
+            response_text = _prompt_llm(prompt, thinking_level=ThinkingLevel.LOW)
+        except Exception as e:
+            if retries_remaining > 0:
+                return self._score_code_simplicity(code_block, retries_remaining - 1)
+            print(f"Failed to get simplicity scores from LLM: {e}")
+            return 0.0, {}
 
         m = re.search(r".*(\{.*?\})", response_text, re.DOTALL)
         if not m:
@@ -641,7 +647,13 @@ Do not include any other text outside the JSON object.
             problem=problem_str,
             feedback=feedback_str,
         )
-        response_text = _prompt_llm(prompt, thinking_level=ThinkingLevel.MEDIUM)
+        try:
+            response_text = _prompt_llm(prompt, thinking_level=ThinkingLevel.MEDIUM)
+        except Exception as e:
+            if retries_remaining > 0:
+                return self._score_test_transfer(explanation, test_results, retries_remaining - 1)
+            print(f"Failed to get transfer score from LLM: {e}")
+            return 0.0, {}
 
         m = re.search(r".*(\{.*?\})", response_text, re.DOTALL)
         if not m:
