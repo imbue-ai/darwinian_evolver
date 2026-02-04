@@ -274,7 +274,7 @@ def _prompt_llm_openai(prompt: str, thinking_level: ThinkingLevel) -> str:
     response_stream = client.responses.create(
         model=OPENAI_MODEL,
         input=[{"role": "user", "content": prompt}],
-        timeout=1800,
+        timeout=3600,
         reasoning={"effort": reasoning_effort},
         stream=True,
     )
