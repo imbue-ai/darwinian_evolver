@@ -211,7 +211,10 @@ def _track_google_costs(model: str, usage: genai.types.UsageMetadata) -> None:
 
 @retry(stop=stop_after_attempt(4), reraise=True)
 def _prompt_llm_google(prompt: str, thinking_level: ThinkingLevel, use_alt_model: bool = False) -> str:
-    client = genai.Client()
+    client = genai.Client(
+        api_key=os.environ["GOOGLE_API_KEY"],
+        vertexai=True
+    )
 
     if use_alt_model:
         model = GOOGLE_MODEL_HIGH_THINKING_ALT if thinking_level == ThinkingLevel.HIGH else GOOGLE_MODEL_LOW_THINKING
