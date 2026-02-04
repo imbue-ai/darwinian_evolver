@@ -209,7 +209,7 @@ def _track_google_costs(model: str, usage: genai.types.UsageMetadata) -> None:
     _track_cost(cost)
 
 
-@retry(stop=stop_after_attempt(2), reraise=True)
+@retry(stop=stop_after_attempt(4), reraise=True)
 def _prompt_llm_google(prompt: str, thinking_level: ThinkingLevel, use_alt_model: bool = False) -> str:
     client = genai.Client()
 
