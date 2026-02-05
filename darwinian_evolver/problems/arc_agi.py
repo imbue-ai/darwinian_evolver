@@ -210,7 +210,10 @@ def _track_google_costs(model: str, usage: genai.types.UsageMetadata) -> None:
     _track_cost(cost)
 
 
-@retry(stop=stop_after_attempt(4), reraise=True)
+ENABLE_GEMINI_CODE_EXECUTION = True
+
+
+@retry(stop=stop_after_attempt(4), wait=wait_random_exponential(multiplier=10), reraise=True)
 def _prompt_llm_google(prompt: str, thinking_level: ThinkingLevel, use_alt_model: bool = False) -> str:
     client = genai.Client(
         api_key=os.getenv("GOOGLE_API_KEY"),
@@ -231,6 +234,10 @@ def _prompt_llm_google(prompt: str, thinking_level: ThinkingLevel, use_alt_model
     else:
         google_thinking_level = "low"
 
+    tools = []
+    if ENABLE_GEMINI_CODE_EXECUTION and thinking_level == ThinkingLevel.HIGH:
+        tools = [genai.types.Tool(code_execution=genai.types.ToolCodeExecution)]
+
     response = client.models.generate_content(
         model=model,
         contents=prompt,
@@ -238,13 +245,19 @@ def _prompt_llm_google(prompt: str, thinking_level: ThinkingLevel, use_alt_model
             # thinking_config=genai.types.ThinkingConfig(thinking_level="high" if high_thinking else "low"),
             thinking_config=genai.types.ThinkingConfig(thinking_level=google_thinking_level),
             http_options=genai.types.HttpOptions(timeout=1800_000),
+            tools=tools,
         ),
     )
 
     if response.usage_metadata:
         _track_google_costs(model, response.usage_metadata)
 
-    return response.candidates[0].content.parts[0].text
+    response_text = ""
+    for parts in response.candidates[0].content.parts:
+        if parts.text:
+            response_text += parts.text
+
+    return response_text
 
 
 def _track_openai_costs(model: str, usage: ResponseUsage) -> None:
