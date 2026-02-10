@@ -11,9 +11,13 @@
 import json
 import re
 from math import floor
+from typing import TYPE_CHECKING
 from typing import Any
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from darwinian_evolver.problems.arc_agi import ArcAgiEvaluationFailureCase
 
 USE_SLASH_DIFF = True
 
