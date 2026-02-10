@@ -35,21 +35,6 @@ test = [
 
 [tool.ruff]
 line-length = 119
-exclude = [
-  "**/__mock_llm_responses__/**",
-  "**/__snapshots__/**",
-  "ansibles/**",
-  "auto_generated/**",
-  "computronium/**",
-  "contrib/**",
-  "crafty/**",
-  "**/quarantine/**",
-  "standalone/**",
-  "test_data/**",
-  "third_party/**",
-  "**/*.ipynb",
-  "wandb/**",
-]
 
 [tool.ruff.format]
 docstring-code-line-length = 119
