@@ -216,7 +216,7 @@ if __name__ == "__main__":
         "--extra_iterations_after_solution",
         type=int,
         help="Extra iterations to run after finding a full solution to see if we can find a more general one.",
-        default=1,
+        default=0,
         required=False,
     )
     arg_parser.add_argument(

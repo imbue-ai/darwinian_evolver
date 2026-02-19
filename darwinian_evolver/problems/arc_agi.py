@@ -53,9 +53,8 @@ ANTHROPIC_MODEL_COSTS = {
     },
 }
 
-# Gemini 3 Flash seems competitive with Gemini 3 Pro on solving ARC-AGI-2 tasks. Though Gemini 3 Pro still might perform better in some cases.
-GOOGLE_MODEL_HIGH_THINKING = "gemini-3-flash-preview"
-GOOGLE_MODEL_HIGH_THINKING_ALT = "gemini-3-pro-preview"
+GOOGLE_MODEL_HIGH_THINKING = "gemini-3.1-pro-preview"
+GOOGLE_MODEL_HIGH_THINKING_ALT = "gemini-3-flash-preview"
 GOOGLE_MODEL_LOW_THINKING = "gemini-3-flash-preview"
 GOOGLE_MODEL_COSTS = {
     "gemini-3-pro-preview": {
@@ -67,6 +66,11 @@ GOOGLE_MODEL_COSTS = {
         "prompt_per_1m_tokens": 0.5,
         "cached_per_1m_tokens": 0.05,
         "generated_per_1m_tokens": 3.00,
+    },
+    "gemini-3.1-pro-preview": {
+        "prompt_per_1m_tokens": 2.0,
+        "cached_per_1m_tokens": 0.2,
+        "generated_per_1m_tokens": 12.0,
     },
 }
 
@@ -241,16 +245,17 @@ def _prompt_llm_google(prompt: str, thinking_level: ThinkingLevel, use_alt_model
         vertexai=os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "False").lower() == "true",
     )
 
+    use_high_thinking_model = thinking_level in (ThinkingLevel.HIGH, ThinkingLevel.MEDIUM)
     if use_alt_model:
-        model = GOOGLE_MODEL_HIGH_THINKING_ALT if thinking_level == ThinkingLevel.HIGH else GOOGLE_MODEL_LOW_THINKING
+        model = GOOGLE_MODEL_HIGH_THINKING_ALT if use_high_thinking_model else GOOGLE_MODEL_LOW_THINKING
     else:
-        model = GOOGLE_MODEL_HIGH_THINKING if thinking_level == ThinkingLevel.HIGH else GOOGLE_MODEL_LOW_THINKING
+        model = GOOGLE_MODEL_HIGH_THINKING if use_high_thinking_model else GOOGLE_MODEL_LOW_THINKING
 
     if thinking_level == ThinkingLevel.HIGH:
         google_thinking_level = "high"
     elif thinking_level == ThinkingLevel.MEDIUM:
         # Even though it costs more, we use high thinking for the transfer score evaluations as well, as it is of significant importance for selecting
-        # the "right" organism. (currently, transfer score is the only place that uses MEDIUM thinking level)
+        # the "right" organism. (currently, transfer score is the only place that passes MEDIUM as the thinking level)
         google_thinking_level = "high"
     else:
         google_thinking_level = "low"
@@ -263,7 +268,6 @@ def _prompt_llm_google(prompt: str, thinking_level: ThinkingLevel, use_alt_model
         model=model,
         contents=prompt,
         config=genai.types.GenerateContentConfig(
-            # thinking_config=genai.types.ThinkingConfig(thinking_level="high" if high_thinking else "low"),
             thinking_config=genai.types.ThinkingConfig(thinking_level=google_thinking_level),
             http_options=genai.types.HttpOptions(timeout=1800_000),
             tools=tools,
@@ -765,7 +769,10 @@ Here's how to approach the problem:
   *   Use NumPy for array manipulations. Other standard libraries are also available.
   *   The code should implement the natural language steps you described.
   *   If it is too hard to distill the transformation step into general code, you can hard-code elements of the solutions as a last resort. Make sure to cover all example AND challenge inputs in that case. ONLY do this if you have exhausted all other options.
-6. Output Format:
+6. Test and Refine:
+  *   Test your code on all examples. If it fails for any example, refine your hypothesis and code.
+  *   Also make sure the code will function correctly on the challenge inputs.
+7. Output Format:
   *   Your response must have two parts: First, an explanation with transformation steps. Then, a code block.
   *   **Explanation**:
      - Describe the transformation step in natural language
