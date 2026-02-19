@@ -4,11 +4,15 @@ import random
 from abc import ABC
 from abc import abstractmethod
 from collections import defaultdict
+from typing import TYPE_CHECKING
 from typing import Generic
 from typing import Self
 from typing import TypeVar
 from uuid import UUID
 from uuid import uuid4
+
+if TYPE_CHECKING:
+    from darwinian_evolver.population import Population
 
 from pydantic import BaseModel
 from pydantic import ConfigDict

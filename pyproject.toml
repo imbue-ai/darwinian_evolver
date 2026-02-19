@@ -27,7 +27,25 @@ dev = [
     "tqdm",
     "pandas",
     "pandas-stubs",
+    "ruff",
 ]
 test = [
     "pytest",
 ]
+
+[tool.ruff]
+line-length = 119
+
+[tool.ruff.format]
+docstring-code-line-length = 119
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint.isort]
+force-single-line = true
+case-sensitive = true
+order-by-type = false
+known-first-party = [
+    "darwinian_evolver",
+]
+no-lines-before = ["future"]
