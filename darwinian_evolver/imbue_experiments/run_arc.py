@@ -28,6 +28,12 @@ elif USE_PROVIDER == "anthropic":
 else:
     SUFFICIENT_TRANSFER_SCORE = 0.95
 
+# Use p50 for very strong models (e.g. Opus 4.6 or Gemini 3.1 Pro).
+# A higher value such as p99 works better for Gemini 3 Flash to hone in more strongly on well-performing organisms.
+MIDPOINT_SCORE_PERCENTILE = 50.0
+if USE_PROVIDER == "google_alt":
+    MIDPOINT_SCORE_PERCENTILE = 99.0
+
 
 def _eval_task_data(
     task_id: str,
@@ -59,8 +65,7 @@ def _eval_task_data(
         problem,
         learning_log_view_type=parse_learning_log_view_type(learning_log_type),
         sharpness=10.0,
-        # Use p50 for very strong models (e.g. Opus 4.6), a higher value such as p99 for Gemini 3 to hone in more strongly on well-performing organisms.
-        midpoint_score_percentile=50.0,
+        midpoint_score_percentile=MIDPOINT_SCORE_PERCENTILE,
         novelty_weight=0.2,
         batch_size=32,
         should_verify_mutations=True,
