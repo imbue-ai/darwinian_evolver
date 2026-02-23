@@ -1,0 +1,23 @@
+[offload]
+max_parallel = 3
+test_timeout_secs = 120
+stream_output = true
+
+[provider]
+type = "modal"
+app_name = "darwinian-evolver-tests"
+dockerfile = ".devcontainer/Dockerfile"
+working_dir = "/app"
+timeout_secs = 300
+
+[groups.all]
+type = "pytest"
+paths = ["darwinian_evolver/"]
+python = "uv"
+extra_args = ["run", "--group", "test"]
+retry_count = 0
+
+[report]
+output_dir = "test-results"
+junit = true
+junit_file = "junit.xml"

@@ -10,3 +10,8 @@ __pycache__/
 *.so
 build/
 dist/
+
+# Offload
+test-results/
+.offload-cache/
+.offload-image-cache

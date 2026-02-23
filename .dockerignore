@@ -1,0 +1,11 @@
+.venv
+.git
+.github
+__pycache__
+*.egg-info
+.offload
+.offload-image-cache
+.offload-cache
+test-results
+build
+dist
