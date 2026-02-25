@@ -83,6 +83,16 @@ OPENAI_MODEL_COSTS = {
     },
 }
 
+OPENROUTER_MODEL = "moonshotai/kimi-k2.5"
+OPENROUTER_MODEL_COSTS = {
+    # OpenRouter model costs are approximate and depend on provider routing.
+    "moonshotai/kimi-k2.5": {
+        "input_per_1m_tokens": 0.6,
+        "cached_per_1m_tokens": 0.1,
+        "output_per_1m_tokens": 3.0,
+    },
+}
+
 USE_PROVIDER = os.getenv("PROVIDER", "google")
 
 
@@ -167,6 +177,8 @@ def _prompt_llm(prompt: str, thinking_level: ThinkingLevel) -> str:
             return _prompt_llm_google(prompt, thinking_level)
         else:
             return _prompt_llm_anthropic(prompt, thinking_level)
+    elif USE_PROVIDER == "openrouter":
+        return _prompt_llm_openrouter(prompt, thinking_level)
     else:
         raise ValueError(f"Unsupported provider: {USE_PROVIDER}")
 
@@ -238,7 +250,7 @@ def _track_google_costs(model: str, usage: genai.types.UsageMetadata) -> None:
 ENABLE_GEMINI_CODE_EXECUTION = True
 
 
-@retry(stop=stop_after_attempt(4), wait=wait_random_exponential(multiplier=10), reraise=True)
+@retry(stop=stop_after_attempt(10), wait=wait_random_exponential(multiplier=10), reraise=True)
 def _prompt_llm_google(prompt: str, thinking_level: ThinkingLevel, use_alt_model: bool = False) -> str:
     client = genai.Client(
         api_key=os.getenv("GOOGLE_API_KEY"),
@@ -331,6 +343,52 @@ def _prompt_llm_openai(prompt: str, thinking_level: ThinkingLevel) -> str:
     usage = response.usage
     assert usage
     _track_openai_costs(OPENAI_MODEL, usage)
+
+    return response.output_text
+
+
+def _track_openrouter_costs(model: str, usage: ResponseUsage) -> None:
+    cost = 0.0
+    model_costs = OPENROUTER_MODEL_COSTS[model]
+    uncached_input_tokens = usage.input_tokens
+    cached_tokens = usage.input_tokens_details.cached_tokens
+    uncached_input_tokens -= cached_tokens
+    cost += uncached_input_tokens / 1_000_000 * model_costs["input_per_1m_tokens"]
+    cost += cached_tokens / 1_000_000 * model_costs["cached_per_1m_tokens"]
+    cost += usage.output_tokens / 1_000_000 * model_costs["output_per_1m_tokens"]
+    _track_cost(cost)
+
+
+@retry(stop=stop_after_attempt(4), wait=wait_random_exponential(multiplier=10), reraise=True)
+def _prompt_llm_openrouter(prompt: str, thinking_level: ThinkingLevel) -> str:
+    try:
+        client = OpenAI(base_url="https://openrouter.ai/api/v1")
+
+        response_stream = client.responses.create(
+            model=OPENROUTER_MODEL,
+            input=[{"role": "user", "content": prompt}],
+            timeout=3600,
+            extra_body={"reasoning": {"enabled": thinking_level != ThinkingLevel.LOW}},
+            stream=True,
+        )
+
+        response = None
+        for chunk in response_stream:
+            if chunk.type == "response.completed":
+                response = chunk.response
+                break
+            elif chunk.type == "response.failed":
+                raise RuntimeError(f"OpenRouter response failed: {chunk.response.error.message}")
+
+        if response is None:
+            raise RuntimeError("Response stream did not contain a completed response.")
+
+        usage = response.usage
+        assert usage
+        _track_openrouter_costs(OPENROUTER_MODEL, usage)
+    except Exception as e:
+        print(f"OpenRouter API call failed: {e}")
+        raise
 
     return response.output_text
 
