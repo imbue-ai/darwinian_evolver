@@ -55,7 +55,8 @@ def _has_hit_stopping_criteria(population: Population) -> bool:
             all(
                 grids_equal(coerce_grid(fc1.output), coerce_grid(fc2.output))
                 for fc1, fc2 in zip(
-                    other_complete_example_solution.holdout_failure_cases, complete_example_solutions[0].holdout_failure_cases
+                    other_complete_example_solution.holdout_failure_cases,
+                    complete_example_solutions[0].holdout_failure_cases,
                 )
             )
             for other_complete_example_solution in complete_example_solutions[1:]
