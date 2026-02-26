@@ -361,34 +361,30 @@ def _track_openrouter_costs(model: str, usage: ResponseUsage) -> None:
 
 @retry(stop=stop_after_attempt(4), wait=wait_random_exponential(multiplier=10), reraise=True)
 def _prompt_llm_openrouter(prompt: str, thinking_level: ThinkingLevel) -> str:
-    try:
-        client = OpenAI(base_url="https://openrouter.ai/api/v1")
+    client = OpenAI(base_url="https://openrouter.ai/api/v1")
 
-        response_stream = client.responses.create(
-            model=OPENROUTER_MODEL,
-            input=[{"role": "user", "content": prompt}],
-            timeout=3600,
-            extra_body={"reasoning": {"enabled": thinking_level != ThinkingLevel.LOW}},
-            stream=True,
-        )
+    response_stream = client.responses.create(
+        model=OPENROUTER_MODEL,
+        input=[{"role": "user", "content": prompt}],
+        timeout=3600,
+        extra_body={"reasoning": {"enabled": thinking_level != ThinkingLevel.LOW}},
+        stream=True,
+    )
 
-        response = None
-        for chunk in response_stream:
-            if chunk.type == "response.completed":
-                response = chunk.response
-                break
-            elif chunk.type == "response.failed":
-                raise RuntimeError(f"OpenRouter response failed: {chunk.response.error.message}")
+    response = None
+    for chunk in response_stream:
+        if chunk.type == "response.completed":
+            response = chunk.response
+            break
+        elif chunk.type == "response.failed":
+            raise RuntimeError(f"OpenRouter response failed: {chunk.response.error.message}")
 
-        if response is None:
-            raise RuntimeError("Response stream did not contain a completed response.")
+    if response is None:
+        raise RuntimeError("Response stream did not contain a completed response.")
 
-        usage = response.usage
-        assert usage
-        _track_openrouter_costs(OPENROUTER_MODEL, usage)
-    except Exception as e:
-        print(f"OpenRouter API call failed: {e}")
-        raise
+    usage = response.usage
+    assert usage
+    _track_openrouter_costs(OPENROUTER_MODEL, usage)
 
     return response.output_text
 

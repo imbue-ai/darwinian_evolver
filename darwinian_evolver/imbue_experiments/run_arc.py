@@ -29,7 +29,69 @@ else:
     # This value is calibrated primarily for Gemini 3 models
     SUFFICIENT_TRANSFER_SCORE = 0.95
 
-MIDPOINT_SCORE_PERCENTILE = 50.0
+MIDPOINT_SCORE_PERCENTILE = 75.0
+
+USE_EXTENSIVE_SEARCH = True
+
+
+def _has_hit_stopping_criteria(population: Population) -> bool:
+    complete_example_solutions = [
+        eval_result for _, eval_result in population.organisms if eval_result.correctness_score > 0.999
+    ]
+    complete_example_solutions.sort(key=lambda er: er.score, reverse=True)
+    complete_solutions = [
+        eval_result
+        for _, eval_result in population.organisms
+        if (eval_result.correctness_score > 0.999 and eval_result.transfer_score >= SUFFICIENT_TRANSFER_SCORE)
+    ]
+    complete_solutions.sort(key=lambda er: er.score, reverse=True)
+    if USE_EXTENSIVE_SEARCH:
+        # At least one solution with a sufficiently high transfer score, and either:
+        if len(complete_solutions) < 1:
+            return False
+
+        # a) all solutions that agree on the examples also agree on the challenges,
+        all_complete_example_solutions_agree = len(complete_example_solutions) >= 2 and all(
+            all(
+                grids_equal(coerce_grid(fc1.output), coerce_grid(fc2.output))
+                for fc1, fc2 in zip(
+                    other_complete_example_solution.holdout_failure_cases, complete_example_solutions[0].holdout_failure_cases
+                )
+            )
+            for other_complete_example_solution in complete_example_solutions[1:]
+        )
+
+        # b) or we must have at least 2 different predictions with high transfer scores for each challenge, AND two that agree.
+        has_two_different_solutions = all(
+            any(
+                not grids_equal(
+                    coerce_grid(other_complete_solution.holdout_failure_cases[idx].output), coerce_grid(fc2.output)
+                )
+                for other_complete_solution in complete_solutions[1:]
+            )
+            for idx, fc2 in enumerate(complete_solutions[0].holdout_failure_cases)
+        )
+
+        two_complete_solutions_agree = False
+        for idx, reference_solution in enumerate(complete_solutions):
+            another_complete_solution_agrees = any(
+                all(
+                    grids_equal(
+                        coerce_grid(fc1.output),
+                        coerce_grid(fc2.output),
+                    )
+                    for fc1, fc2 in zip(
+                        reference_solution.holdout_failure_cases, other_complete_solution.holdout_failure_cases
+                    )
+                )
+                for other_complete_solution in complete_solutions[:idx] + complete_solutions[idx + 1 :]
+            )
+            two_complete_solutions_agree = two_complete_solutions_agree or another_complete_solution_agrees
+
+        return all_complete_example_solutions_agree or (has_two_different_solutions and two_complete_solutions_agree)
+    else:
+        # Stop if we have at least two solutions that solve the task fully, according to their correctness and transfer scores.
+        return len(complete_solutions) >= 2
 
 
 def _eval_task_data(
@@ -96,18 +158,10 @@ def _eval_task_data(
 
         remaining_iterations -= 1
 
-        # Keep iterating until we either hit max_iterations, or have at least two solutions that solve the task fully.
+        # Keep iterating until we either hit max_iterations, or hit the early stopping condition.
         # In the latter case, we iterate up to extra_iterations_after_solution more times to see if we can find an even better solution.
-        has_full_solution = (
-            sum(
-                1
-                if (eval_result.correctness_score > 0.999 and eval_result.transfer_score >= SUFFICIENT_TRANSFER_SCORE)
-                else 0
-                for _, eval_result in evolve_loop.population.organisms
-            )
-            >= 2
-        )
-        if has_full_solution:
+        has_reached_stopping_criteria = _has_hit_stopping_criteria(evolve_loop.population)
+        if has_reached_stopping_criteria:
             remaining_iterations = min(remaining_iterations, extra_iterations_after_solution)
 
         if max_time_seconds is not None and (time.time() - start_time) > max_time_seconds:
@@ -218,7 +272,7 @@ if __name__ == "__main__":
         "--extra_iterations_after_solution",
         type=int,
         help="Extra iterations to run after finding a full solution to see if we can find a more general one.",
-        default=2,
+        default=0,
         required=False,
     )
     arg_parser.add_argument(
@@ -246,7 +300,7 @@ if __name__ == "__main__":
         "--max_time",
         type=int,
         help="Maximum time in seconds to spend per problem.",
-        default=180 * 60,  # 3 hours
+        default=60 * 60 * 5,  # 5 hours
         required=False,
     )
     arg_parser.add_argument(
