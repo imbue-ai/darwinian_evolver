@@ -13,6 +13,8 @@ To optimize any prompt or piece of code with Darwinian-evolver, you only need to
 
 Darwinian-evolver orchestrates the evolutionary process. A key strength is its resilience - the approach works even with noisy evaluators or unreliable mutators. If your mutator only produces a better solution 20% of the time, Darwinian-evolver can still leverage those successes to drive progress.
 
+See our blog post [LLM-based Evolution as a Universal Optimizer](https://imbue.com/research/2026-02-27-darwinian-evolver/) for additional context about the framework.
+
 ## Quick Start
 
 You can run a simple example problem called "parrot" using the following command:
@@ -252,3 +254,27 @@ def format_observed_outcome(self, parent_result: EvaluationResult | None) -> str
     ...
 ```
 3. Pass the `--learning_log` command line option with the desired strategy (e.g. `--learning_log neighborhood-2`)
+
+## ARC-AGI
+
+This repository also contains a problem specification for solving ARC-AGI-1 and ARC-AGI-2 tasks.
+
+The ARC-AGI solver has its own main script:
+```bash
+uv run python darwinian_evolver/imbue_experiments/run_arc.py \
+  --challenges arc-prize-2025/arc-agi_evaluation_challenges.json \
+  --solutions arc-prize-2025/arc-agi_evaluation_solutions.json \
+  --hide_solutions \
+  --output_dir arc2-results
+```
+
+See our post on [Beating ARC-AGI-2 with Code Evolution](https://imbue.com/research/2026-02-27-arc-agi-2-evolution/) for more details.
+
+## Contributors
+
+In random order:
+* [Nayana Bannur](https://github.com/NayanaBannur)
+* [Kaien Yang](https://github.com/kaien-yang/)
+* [Daniel Mewes](https://github.com/danielmewes/)
+* [Catherine Kim](https://github.com/catherinek07/)
+* [Eric Lu](https://github.com/penlu/)
