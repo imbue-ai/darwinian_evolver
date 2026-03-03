@@ -25,7 +25,7 @@ from darwinian_evolver.problem import Mutator
 from darwinian_evolver.problem import Organism
 from darwinian_evolver.problem import Problem
 
-EVAL_MODEL = "claude-3-5-haiku-20241022"
+EVAL_MODEL = "claude-haiku-4-5-20251001"
 MUTATION_MODEL = "claude-sonnet-4-20250514"
 
 
