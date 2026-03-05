@@ -26,7 +26,7 @@ from darwinian_evolver.problem import Organism
 from darwinian_evolver.problem import Problem
 
 EVAL_MODEL = "claude-haiku-4-5-20251001"
-MUTATION_MODEL = "claude-sonnet-4-20250514"
+MUTATION_MODEL = "claude-sonnet-4-6"
 
 
 def _prompt_llm(prompt: str, model_name: str) -> str:
