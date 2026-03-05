@@ -15,7 +15,7 @@ from darwinian_evolver.problem import Mutator
 from darwinian_evolver.problem import Organism
 from darwinian_evolver.problem import Problem
 
-ANTHROPIC_MODEL = "claude-sonnet-4-20250514"
+ANTHROPIC_MODEL = "claude-sonnet-4-6"
 
 
 def _prompt_llm(prompt: str) -> str:
