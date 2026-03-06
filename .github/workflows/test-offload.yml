@@ -10,7 +10,6 @@ on:
 jobs:
   offload-tests:
     runs-on: ubuntu-latest
-    continue-on-error: true   # Advisory only — never blocks merging
     steps:
       - uses: actions/checkout@v4
 
@@ -35,12 +34,12 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ~/.cargo/bin/offload
-          key: cargo-offload-0.3.0-${{ runner.os }}
+          key: cargo-offload-0.5.0-${{ runner.os }}
 
       - name: Install offload
         run: |
           if ! command -v offload &> /dev/null; then
-            cargo install offload@0.3.0
+            cargo install offload@0.5.0
           fi
 
       - name: Install Modal CLI
@@ -50,4 +49,4 @@ jobs:
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-        run: offload run --copy-dir ".:/app"
+        run: offload run
