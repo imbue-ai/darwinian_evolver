@@ -14,4 +14,3 @@ dist/
 # Offload
 test-results/
 .offload-cache/
-.offload-image-cache

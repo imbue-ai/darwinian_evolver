@@ -1,20 +1,19 @@
 [offload]
 max_parallel = 1
 test_timeout_secs = 120
-stream_output = true
+sandbox_project_root = "/app"
 
 [provider]
 type = "modal"
-app_name = "darwinian-evolver-tests"
 dockerfile = ".devcontainer/Dockerfile"
-working_dir = "/app"
-timeout_secs = 300
+include_cwd = true
 
-[groups.all]
+[framework]
 type = "pytest"
 paths = ["darwinian_evolver/"]
-python = "uv"
-extra_args = ["run", "--group", "test"]
+command = "uv run --group test pytest"
+
+[groups.all]
 retry_count = 0
 
 [report]
