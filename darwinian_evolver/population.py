@@ -148,6 +148,7 @@ class Population:
         replace: bool = True,
         novelty_weight: float | None = None,
         exclude_untrainable: bool = True,
+        expected_children_per_parent: float = 1.0,
     ) -> list[tuple[Organism, EvaluationResult]]:
         """Sample k parents from the population.
 
@@ -157,6 +158,7 @@ class Population:
             replace: If True, sample with replacement. If False, sample without replacement.
             novelty_weight: Optional weighting factor for novelty bonus.
             exclude_untrainable: If True, exclude untrainable organisms from sampling.
+            expected_children_per_parent: Expected number of children per parent to assume for the novelty bonus calculation when drawing next parents with replacement.
 
         Returns:
             List of (organism, evaluation_result) tuples representing the sampled parents.
@@ -319,6 +321,7 @@ class WeightedSamplingPopulation(Population):
         replace: bool = True,
         novelty_weight: float | None = None,
         exclude_untrainable: bool = True,
+        expected_children_per_parent: float = 1.0,
     ) -> list[tuple[Organism, EvaluationResult]]:
         """Sample k parents from the population using weighted sampling.
 
@@ -328,6 +331,7 @@ class WeightedSamplingPopulation(Population):
             replace: If True, sample with replacement. If False, sample without replacement.
             novelty_weight: Optional weighting factor for novelty bonus. If None, uses the population's configured novelty weight.
             exclude_untrainable: If True, exclude untrainable organisms from sampling. Untrainable organisms are those that have no trainable failure cases in their evaluation result.
+            expected_children_per_parent: Expected number of children per parent to assume for the novelty bonus calculation when drawing next parents with replacement.
         """
         # To be eligible for parent selection, an organism must:
         # * have failed in at least one trainable evaluation task
@@ -343,28 +347,44 @@ class WeightedSamplingPopulation(Population):
 
         if novelty_weight is None:
             novelty_weight = self._novelty_weight
-        weights = self._compute_weights(eligible_organisms, novelty_weight)
 
         if replace:
-            return random.choices(eligible_organisms, weights=weights, k=k)
+            sampled = []
+            temp_children_counts = {
+                organism.id: float(len(self._children[organism.id])) for organism, _ in eligible_organisms
+            }
+            for _ in range(k):
+                weights = self._compute_weights(eligible_organisms, novelty_weight, temp_children_counts)
+                draw = random.choices(eligible_organisms, weights=weights, k=1)[0]
+                sampled.append(draw)
+                temp_children_counts[draw[0].id] += expected_children_per_parent
+            return sampled
         else:
             if k > len(eligible_organisms):
                 raise ValueError(
                     f"Cannot sample {k} parents without replacement from {len(eligible_organisms)} eligible organisms"
                 )
+            weights = self._compute_weights(eligible_organisms, novelty_weight)
             probabilities = np.array(weights) / sum(weights)
             indices = np.random.choice(len(eligible_organisms), size=k, replace=False, p=probabilities)
             return [eligible_organisms[i] for i in indices]
 
     def _compute_weights(
-        self, eligible_organisms: list[tuple[Organism, EvaluationResult]], novelty_weight: float
+        self,
+        eligible_organisms: list[tuple[Organism, EvaluationResult]],
+        novelty_weight: float,
+        temp_children_counts: dict[UUID, float] | None = None,
     ) -> list[float]:
         """Implements weighting according to section "A.2 Parent Selection" from Zhang et al. 2025."""
         midpoint_score = self._compute_midpoint_score()
         weights = []
         for organism, evaluation_result in eligible_organisms:
             sigmoid_performance = self._compute_sigmoid_performance(evaluation_result, midpoint_score=midpoint_score)
-            novelty_bonus = self._compute_novelty_bonus(organism, novelty_weight)
+            if temp_children_counts is not None:
+                num_children = temp_children_counts[organism.id]
+            else:
+                num_children = float(len(self._children[organism.id]))
+            novelty_bonus = self._compute_novelty_bonus(novelty_weight, num_children)
             weight = sigmoid_performance * novelty_bonus
 
             assert weight >= 0
@@ -386,13 +406,12 @@ class WeightedSamplingPopulation(Population):
         sigmoid_performance = 1 / (1 + math.exp(-self._sharpness * (evaluation_result.score - midpoint_score)))
         return sigmoid_performance
 
-    def _compute_novelty_bonus(self, organism: Organism, novelty_weight: float) -> float:
+    def _compute_novelty_bonus(self, novelty_weight: float, num_children: float) -> float:
         """
         Compute the novelty bonus based on the number of children.
 
         This assigns a bonus to organisms that haven't been explored as much, encouraging diversity in the population.
         """
-        num_children = len(self._children[organism.id])
         novelty_bonus = 1 / (1 + novelty_weight * num_children)
         return novelty_bonus
 
@@ -445,6 +464,7 @@ class FixedTreePopulation(Population):
         replace: bool = True,
         novelty_weight: float | None = None,
         exclude_untrainable: bool = True,
+        expected_children_per_parent: float = 1.0,
     ) -> list[tuple[Organism, EvaluationResult]]:
         """
         Select all organisms from the current generation frontier, each repeated n times.
@@ -455,6 +475,7 @@ class FixedTreePopulation(Population):
             replace: Unused by this implementation
             novelty_weight: Unused by this implementation
             exclude_untrainable: Unused by this implementation
+            expected_children_per_parent: Unused by this implementation
 
         Returns:
             List of (organism, evaluation_result) tuples, with each frontier organism repeated
