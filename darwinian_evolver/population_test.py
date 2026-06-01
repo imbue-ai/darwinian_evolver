@@ -758,7 +758,7 @@ def test_weighted_sampling_sample_parents_expected_children_per_parent() -> None
         mock_choices.side_effect = [[eligible[0]], [eligible[1]]]
 
         # Call sample_parents with expected_children_per_parent=2.0
-        samples = population.sample_parents(k=2, replace=True, expected_children_per_parent=2.0)
+        population.sample_parents(k=2, replace=True, expected_children_per_parent=2.0)
 
         # Verify mock was called twice
         assert mock_choices.call_count == 2
