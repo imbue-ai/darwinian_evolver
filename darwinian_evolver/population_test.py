@@ -705,7 +705,7 @@ def test_weighted_sampling_novelty_bonus() -> None:
     parent = population.organisms[0][0]
 
     # Compute initial novelty bonus (no children)
-    initial_bonus = population._compute_novelty_bonus(parent, population._novelty_weight)
+    initial_bonus = population._compute_novelty_bonus(population._novelty_weight, len(population._children[parent.id]))
 
     # Add children to parent
     for i in range(3):
@@ -720,10 +720,83 @@ def test_weighted_sampling_novelty_bonus() -> None:
         population.add(child, child_result)
 
     # Compute novelty bonus after adding children
-    final_bonus = population._compute_novelty_bonus(parent, population._novelty_weight)
+    final_bonus = population._compute_novelty_bonus(population._novelty_weight, len(population._children[parent.id]))
 
     # Novelty bonus should decrease
     assert final_bonus < initial_bonus
+
+
+def test_weighted_sampling_sample_parents_expected_children_per_parent() -> None:
+    """Test that expected_children_per_parent updates weights when replace=True."""
+    from unittest.mock import patch
+    
+    population = create_weighted_population(
+        score=2.0,
+        sharpness=10.0,
+        fixed_midpoint_score=2.0,
+        novelty_weight=1.0,
+    )
+    parent = population.organisms[0][0]
+    # Add a second organism so we have two eligible ones
+    child, _ = add_test_child(population, parent, score=2.0)
+
+    # Check that we have exactly 2 eligible organisms
+    eligible = [
+        (org, result)
+        for org, result in population.organisms
+        if result.is_viable and len(result.trainable_failure_cases) > 0
+    ]
+    assert len(eligible) == 2
+    org_a, org_b = eligible[0][0], eligible[1][0]
+
+    # Reset children counts so both start with 0 children
+    population._children[org_a.id] = []
+    population._children[org_b.id] = []
+
+    # We will mock random.choices to return org_a on the first call, and org_b on the second call
+    with patch("random.choices") as mock_choices:
+        mock_choices.side_effect = [[eligible[0]], [eligible[1]]]
+
+        # Call sample_parents with expected_children_per_parent=2.0
+        samples = population.sample_parents(k=2, replace=True, expected_children_per_parent=2.0)
+
+        # Verify mock was called twice
+        assert mock_choices.call_count == 2
+
+        # Let's inspect the weights passed to each call
+        first_call_args, first_call_kwargs = mock_choices.call_args_list[0]
+        second_call_args, second_call_kwargs = mock_choices.call_args_list[1]
+
+        first_weights = first_call_kwargs["weights"]
+        second_weights = second_call_kwargs["weights"]
+
+        # For the first call, both organisms have 0 children, so their weights should be equal
+        assert first_weights[0] == first_weights[1]
+
+        # For the second call, org_a was drawn, so its children count increased by 2.0
+        # org_a's weight should be updated using temp_children_counts of 2.0:
+        # novelty_bonus = 1 / (1 + 1.0 * 2.0) = 1/3
+        # org_b's novelty_bonus = 1 / (1 + 1.0 * 0) = 1.0
+        # Since scores and midpoint are equal, the ratio of second_weights should be exactly 1:3
+        assert second_weights[0] * 3.0 == pytest.approx(second_weights[1])
+
+
+def test_weighted_sampling_sample_parents_expected_children_per_parent_ignored_when_replace_false() -> None:
+    """Test that expected_children_per_parent is ignored when replace=False."""
+    population = create_weighted_population(
+        score=2.0,
+        sharpness=10.0,
+        fixed_midpoint_score=2.0,
+        novelty_weight=1.0,
+    )
+    parent = population.organisms[0][0]
+    child, _ = add_test_child(population, parent, score=2.0)
+
+    # Since replace=False, np.random.choice is used, and expected_children_per_parent has no effect.
+    samples = population.sample_parents(k=2, replace=False, expected_children_per_parent=100.0)
+    assert len(samples) == 2
+    # Ensure they are unique
+    assert len({org.id for org, _ in samples}) == 2
 
 
 # ============================================================================
