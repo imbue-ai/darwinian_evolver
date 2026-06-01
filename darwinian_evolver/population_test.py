@@ -729,7 +729,7 @@ def test_weighted_sampling_novelty_bonus() -> None:
 def test_weighted_sampling_sample_parents_expected_children_per_parent() -> None:
     """Test that expected_children_per_parent updates weights when replace=True."""
     from unittest.mock import patch
-    
+
     population = create_weighted_population(
         score=2.0,
         sharpness=10.0,
