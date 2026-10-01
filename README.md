@@ -278,3 +278,7 @@ In random order:
 * [Daniel Mewes](https://github.com/danielmewes/)
 * [Catherine Kim](https://github.com/catherinek07/)
 * [Eric Lu](https://github.com/penlu/)
+
+## License
+
+Imbue's original Darwinian Evolver code is licensed under the [MIT License](LICENSE). Third-party code, dependencies, datasets, and reference materials retain their own licenses and attribution.
